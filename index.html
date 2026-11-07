@@ -45,7 +45,8 @@
                     تسجيل الدخول
                 </button>
             </form>
-         </div>
+            <p class="text-xs text-slate-400 mt-6">الحسابات الافتراضية: admin (admin123) | staff (1234)</p>
+        </div>
     </div>
 
     <!-- الشريط العلوي -->
@@ -255,29 +256,7 @@
         </div>
     </div>
 
-    <!-- Firebase SDK Scripts for Real-time Cloud Sync -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Firebase Setup & Environment Configurations
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'casablanca-village-app';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' 
-            ? JSON.parse(__firebase_config) 
-            : {
-                apiKey: "AIzaSyDemoKeyOnlyReplaceWithYoursIfAny",
-                authDomain: "casablanca-village.firebaseapp.com",
-                projectId: "casablanca-village",
-                storageBucket: "casablanca-village.appspot.com",
-                messagingSenderId: "1234567890",
-                appId: "1:1234567890:web:casablancaDemo"
-            };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
+    <script>
         let currentUser = null;
         let currentRole = null;
         let units = [];
@@ -286,21 +265,19 @@
         let currentPage = 1;
         const pageSize = 20;
 
-        // Path Helpers for Rules Compliance
-        const getPublicCollectionPath = (collectionName) => collection(db, 'artifacts', appId, 'public', 'data', collectionName);
-        const getPublicDocPath = (collectionName, docId) => doc(db, 'artifacts', appId, 'public', 'data', collectionName, docId);
-
-        // Authentication Setup
-        async function initAuth() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+        function initUsers() {
+            const savedUsers = localStorage.getItem('casablanca_users_db');
+            if (savedUsers) {
+                try {
+                    usersList = JSON.parse(savedUsers);
+                } catch(e) {
+                    usersList = getDefaultUsers();
                 }
-            } catch (error) {
-                console.error("Auth error:", error);
+            } else {
+                usersList = getDefaultUsers();
+                saveUsersDb();
             }
+            populateLoginSelect();
         }
 
         function getDefaultUsers() {
@@ -310,45 +287,9 @@
             ];
         }
 
-        // Live Real-Time Listeners
-        function setupLiveListeners() {
-            // Listen for users updates
-            onSnapshot(getPublicCollectionPath('users'), (snapshot) => {
-                if (snapshot.empty) {
-                    // Seed initial users if empty
-                    getDefaultUsers().forEach(async (u) => {
-                        await setDoc(getPublicDocPath('users', u.username), u);
-                    });
-                } else {
-                    usersList = [];
-                    snapshot.forEach(docSnap => {
-                        usersList.push(docSnap.data());
-                    });
-                    populateLoginSelect();
-                    if (document.getElementById('usersModal') && !document.getElementById('usersModal').classList.contains('hidden')) {
-                        renderUsersList();
-                    }
-                }
-            }, (error) => console.error("Users live listener error:", error));
-
-            // Listen for units updates in real-time
-            onSnapshot(getPublicCollectionPath('units'), (snapshot) => {
-                if (snapshot.empty) {
-                    // Seed initial units if empty
-                    const initial = generateInitialUnits();
-                    initial.forEach(async (u) => {
-                        await setDoc(getPublicDocPath('units', u.id), u);
-                    });
-                } else {
-                    units = [];
-                    snapshot.forEach(docSnap => {
-                        units.push(docSnap.data());
-                    });
-                    // Keep units sorted by numeric ID
-                    units.sort((a, b) => Number(a.id) - Number(b.id));
-                    render();
-                }
-            }, (error) => console.error("Units live listener error:", error));
+        function saveUsersDb() {
+            localStorage.setItem('casablanca_users_db', JSON.stringify(usersList));
+            populateLoginSelect();
         }
 
         function populateLoginSelect() {
@@ -361,7 +302,7 @@
             });
         }
 
-        window.handleLogin = function(e) {
+        function handleLogin(e) {
             e.preventDefault();
             const username = document.getElementById('loginUserSelect').value;
             const password = document.getElementById('loginPassword').value;
@@ -374,18 +315,18 @@
             } else {
                 alert('كلمة المرور غير صحيحة!');
             }
-        };
+        }
 
-        window.openUsersModal = function() {
+        function openUsersModal() {
             document.getElementById('usersModal').classList.remove('hidden');
             document.getElementById('usersModal').classList.add('flex');
             renderUsersList();
-        };
+        }
 
-        window.closeUsersModal = function() {
+        function closeUsersModal() {
             document.getElementById('usersModal').classList.add('hidden');
             document.getElementById('usersModal').classList.remove('flex');
-        };
+        }
 
         function renderUsersList() {
             const container = document.getElementById('usersListContainer');
@@ -405,7 +346,7 @@
             });
         }
 
-        window.createNewUser = async function(e) {
+        function createNewUser(e) {
             e.preventDefault();
             const username = document.getElementById('newUsername').value.trim();
             const pass = document.getElementById('newUserPass').value.trim();
@@ -416,32 +357,35 @@
                 return;
             }
 
-            const newUser = { username, pass, role };
-            await setDoc(getPublicDocPath('users', username), newUser);
+            usersList.push({ username, pass, role });
+            saveUsersDb();
             document.getElementById('newUsername').value = '';
             document.getElementById('newUserPass').value = '';
-            alert('تم إنشاء المستخدم بنجاح ومزامنته حياً!');
-        };
+            renderUsersList();
+            alert('تم إنشاء المستخدم بنجاح!');
+        }
 
-        window.deleteUser = async function(username) {
+        function deleteUser(username) {
             if (confirm(`هل أنت متأكد من حذف المستخدم (${username})؟`)) {
-                await deleteDoc(getPublicDocPath('users', username));
+                usersList = usersList.filter(u => u.username !== username);
+                saveUsersDb();
+                renderUsersList();
             }
-        };
+        }
 
-        window.openChangePasswordModal = function() {
+        function openChangePasswordModal() {
             document.getElementById('passwordModal').classList.remove('hidden');
             document.getElementById('passwordModal').classList.add('flex');
-        };
+        }
 
-        window.closeChangePasswordModal = function() {
+        function closeChangePasswordModal() {
             document.getElementById('passwordModal').classList.add('hidden');
             document.getElementById('passwordModal').classList.remove('flex');
             document.getElementById('currentPass').value = '';
             document.getElementById('newPass').value = '';
-        };
+        }
 
-        window.updatePassword = async function(e) {
+        function updatePassword(e) {
             e.preventDefault();
             const currentPassInput = document.getElementById('currentPass').value;
             const newPassInput = document.getElementById('newPass').value;
@@ -450,13 +394,13 @@
 
             if (userObj && userObj.pass === currentPassInput) {
                 userObj.pass = newPassInput;
-                await updateDoc(getPublicDocPath('users', currentUser), { pass: newPassInput });
+                saveUsersDb();
                 alert('تم تغيير كلمة المرور بنجاح!');
                 closeChangePasswordModal();
             } else {
                 alert('كلمة المرور الحالية غير صحيحة!');
             }
-        };
+        }
 
         function generateInitialUnits() {
             const list = [];
@@ -487,6 +431,26 @@
             return list;
         }
 
+        function initData() {
+            initUsers();
+            const saved = localStorage.getItem('casablanca_units_v3');
+            if (saved) {
+                try {
+                    units = JSON.parse(saved);
+                } catch(e) {
+                    units = generateInitialUnits();
+                }
+            }
+            if (!units || units.length === 0) {
+                units = generateInitialUnits();
+                saveData();
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('casablanca_units_v3', JSON.stringify(units));
+        }
+
         function selectRole(role) {
             currentRole = role;
             document.getElementById('authScreen').classList.add('hidden');
@@ -508,21 +472,22 @@
             render();
         }
 
-        window.logout = function() {
+        function logout() {
             currentUser = null;
             document.getElementById('loginPassword').value = '';
             document.getElementById('authScreen').classList.remove('hidden');
-        };
+        }
 
-        window.toggleStatus = async function(id) {
+        function toggleStatus(id) {
             const u = units.find(x => x.id === id);
             if (u) {
-                const newStatus = (u.status === 'متواجد') ? 'غير متواجد' : 'متواجد';
-                await updateDoc(getPublicDocPath('units', id), { status: newStatus });
+                u.status = (u.status === 'متواجد') ? 'غير متواجد' : 'متواجد';
+                saveData();
+                render();
             }
-        };
+        }
 
-        window.setFilter = function(filter) {
+        function setFilter(filter) {
             currentFilter = filter;
             currentPage = 1;
             document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -532,9 +497,9 @@
             if (filter === 'متواجد') document.getElementById('filterAvail').className = 'filter-btn px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 text-white transition';
             if (filter === 'غير متواجد') document.getElementById('filterOcc').className = 'filter-btn px-4 py-2.5 rounded-xl text-sm font-bold bg-rose-600 text-white transition';
             render();
-        };
+        }
 
-        window.render = function() {
+        function render() {
             const query = document.getElementById('searchInput').value.trim().toLowerCase();
             let filtered = units.filter(u => {
                 const matchFilter = (currentFilter === 'all') || (u.status === currentFilter);
@@ -595,14 +560,14 @@
             document.getElementById('pageInfo').innerText = `عرض ${filtered.length > 0 ? start + 1 : 0} إلى ${Math.min(start + pageSize, filtered.length)} من أصل ${filtered.length} وحدة`;
             document.getElementById('prevBtn').disabled = currentPage === 1;
             document.getElementById('nextBtn').disabled = currentPage >= totalPages;
-        };
+        }
 
-        window.changePage = function(delta) {
+        function changePage(delta) {
             currentPage += delta;
             render();
-        };
+        }
 
-        window.openModal = function(id = null) {
+        function openModal(id = null) {
             document.getElementById('unitModal').classList.remove('hidden');
             document.getElementById('unitModal').classList.add('flex');
             if (id) {
@@ -619,14 +584,14 @@
                 document.getElementById('unitForm').reset();
                 document.getElementById('editUnitId').value = '';
             }
-        };
+        }
 
-        window.closeModal = function() {
+        function closeModal() {
             document.getElementById('unitModal').classList.add('hidden');
             document.getElementById('unitModal').classList.remove('flex');
-        };
+        }
 
-        window.saveUnit = async function(e) {
+        function saveUnit(e) {
             e.preventDefault();
             const id = document.getElementById('editUnitId').value;
             const number = document.getElementById('unitNumber').value.trim();
@@ -636,27 +601,35 @@
             const phone = document.getElementById('phoneNumber').value.trim();
 
             if (id) {
-                await updateDoc(getPublicDocPath('units', id), {
+                const u = units.find(x => x.id === id);
+                if (u) {
+                    u.number = number;
+                    u.type = type;
+                    u.status = status;
+                    u.resident = resident;
+                    u.phone = phone;
+                }
+            } else {
+                units.unshift({
+                    id: String(Date.now()),
                     number, type, status, resident, phone
                 });
-            } else {
-                const newId = String(Date.now());
-                await setDoc(getPublicDocPath('units', newId), {
-                    id: newId, number, type, status, resident, phone
-                });
             }
+            saveData();
             closeModal();
-        };
+            render();
+        }
 
-        window.deleteUnit = async function(id) {
+        function deleteUnit(id) {
             if (confirm('هل أنت متأكد من رغبتك في حذف هذه الوحدة؟')) {
-                await deleteDoc(getPublicDocPath('units', id));
+                units = units.filter(u => u.id !== id);
+                saveData();
+                render();
             }
-        };
+        }
 
-        window.onload = async function() {
-            await initAuth();
-            setupLiveListeners();
+        window.onload = function() {
+            initData();
         };
     </script>
 </body>
