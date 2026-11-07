@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>قرية كازابيانكا - إدارة وتتبع حالات الوحدات</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Tajawal', sans-serif; background-color: #f8fafc; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 pb-12">
+
+    <!-- شاشة تسجيل الدخول المحمية -->
+    <div id="authScreen" class="fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 text-center border border-slate-100">
+            <div class="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 text-white text-3xl shadow-lg shadow-blue-500/30">
+                <i class="fa-solid font-bold fa-city"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-slate-800 mb-2">قرية كازابيانكا</h1>
+            <p class="text-slate-500 text-sm mb-6">الرجاء تسجيل الدخول للمتابعة</p>
+
+            <form onsubmit="handleLogin(event)" class="space-y-4 text-right">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">اختر اسم الحساب</label>
+                    <select id="loginUserSelect" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm font-bold text-slate-700">
+                        <!-- ملء الخيارات ديناميكياً -->
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">كلمة المرور</label>
+                    <input type="password" id="loginPassword" required placeholder="أدخل كلمة المرور..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                </div>
+
+                <button type="submit" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-lg shadow-blue-500/20 hover:scale-[1.02] transition">
+                    تسجيل الدخول
+                </button>
+            </form>
+         </div>
+    </div>
+
+    <!-- الشريط العلوي -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-md">
+                    <i class="fa-solid fa-city"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-800">قرية كازابيانكا</h1>
+                    <p id="roleBadge" class="text-xs text-blue-600 font-bold"></p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+                <button id="manageUsersBtn" onclick="openUsersModal()" class="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition hidden">
+                    <i class="fa-solid fa-users-gear"></i>
+                    <span>إدارة المستخدمين</span>
+                </button>
+                <button onclick="openChangePasswordModal()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-key"></i>
+                    <span>تغيير كلمة السر</span>
+                </button>
+                <button onclick="logout()" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span>تسجيل الخروج</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+
+        <!-- قسم الإحصائيات (خاص بالمسؤول) -->
+        <section id="statsSection" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+                <p class="text-slate-500 text-xs font-bold mb-1">إجمالي الوحدات</p>
+                <h3 id="statTotal" class="text-2xl font-black text-slate-800">0</h3>
+            </div>
+            <div class="bg-emerald-50 border border-emerald-100 p-5 rounded-2xl shadow-sm">
+                <p class="text-emerald-600 text-xs font-bold mb-1">الوحدات المتواجدة</p>
+                <h3 id="statAvailable" class="text-2xl font-black text-emerald-700">0</h3>
+            </div>
+            <div class="bg-rose-50 border border-rose-100 p-5 rounded-2xl shadow-sm">
+                <p class="text-rose-600 text-xs font-bold mb-1">غير متواجد</p>
+                <h3 id="statOccupied" class="text-2xl font-black text-rose-700">0</h3>
+            </div>
+            <div class="bg-blue-50 border border-blue-100 p-5 rounded-2xl shadow-sm">
+                <p class="text-blue-600 text-xs font-bold mb-1">نسبة التواجد</p>
+                <h3 id="statRatio" class="text-2xl font-black text-blue-700">0%</h3>
+            </div>
+        </section>
+
+        <!-- ترويسة البحث والتحكم -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div class="relative w-full md:w-96">
+                <i class="fa-solid fa-magnifying-glass absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="text" id="searchInput" oninput="render()" placeholder="بحث برقم الوحدة أو اسم الساكن..." class="w-full pr-11 pl-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm transition">
+            </div>
+
+            <div class="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+                <button onclick="setFilter('all')" id="filterAll" class="filter-btn px-4 py-2.5 rounded-xl text-sm font-bold bg-blue-600 text-white transition">الكل</button>
+                <button onclick="setFilter('متواجد')" id="filterAvail" class="filter-btn px-4 py-2.5 rounded-xl text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">متواجد</button>
+                <button onclick="setFilter('غير متواجد')" id="filterOcc" class="filter-btn px-4 py-2.5 rounded-xl text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">غير متواجد</button>
+                <button id="addUnitBtn" onclick="openModal()" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold flex items-center gap-2 mr-auto md:mr-2 transition">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>إضافة وحدة</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- جدول الوحدات السكنية -->
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden mb-6">
+            <div class="overflow-x-auto">
+                <table class="w-full text-right border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
+                            <th class="py-4 px-6">رقم الوحدة</th>
+                            <th class="py-4 px-6">النوع</th>
+                            <th class="py-4 px-6">الحالة الحالية</th>
+                            <th class="py-4 px-6">اسم الساكن</th>
+                            <th class="py-4 px-6">رقم الهاتف</th>
+                            <th class="py-4 px-6 text-center">تغيير سريع للحالة</th>
+                            <th class="py-4 px-6 text-center admin-only">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="unitsTableBody" class="divide-y divide-slate-100 text-sm">
+                        <!-- يتم ملؤها ديناميكياً -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- التصفح عبر الصفحات (Pagination) -->
+        <div class="flex items-center justify-between bg-white px-6 py-4 rounded-2xl border border-slate-200/80 shadow-sm">
+            <p id="pageInfo" class="text-xs font-bold text-slate-500"></p>
+            <div class="flex items-center gap-2">
+                <button onclick="changePage(-1)" id="prevBtn" class="px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40">السابق</button>
+                <button onclick="changePage(1)" id="nextBtn" class="px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40">التالي</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- نافذة إضافة / تعديل وحدة -->
+    <div id="unitModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+                <h3 id="modalTitle" class="text-lg font-bold text-slate-800">إضافة وحدة جديدة</h3>
+                <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="unitForm" onsubmit="saveUnit(event)" class="space-y-4">
+                <input type="hidden" id="editUnitId">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">رقم الوحدة *</label>
+                    <input type="text" id="unitNumber" required class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">نوع الوحدة</label>
+                        <select id="unitType" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                            <option value="شقة">شقة</option>
+                            <option value="فيلا">فيلا</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">الحالة</label>
+                        <select id="unitStatus" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                            <option value="متواجد">متواجد</option>
+                            <option value="غير متواجد">غير متواجد</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">اسم الساكن</label>
+                    <input type="text" id="residentName" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">رقم الهاتف</label>
+                    <input type="text" id="phoneNumber" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                </div>
+                <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+                    <button type="button" onclick="closeModal()" class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold">إلغاء</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-md shadow-blue-500/20">حفظ البيانات</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة تغيير كلمة السر -->
+    <div id="passwordModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 text-right">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+                <h3 class="text-lg font-bold text-slate-800">تغيير كلمة المرور</h3>
+                <button onclick="closeChangePasswordModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="updatePassword(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">كلمة المرور الحالية</label>
+                    <input type="password" id="currentPass" required placeholder="أدخل كلمة المرور الحالية..." class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">كلمة المرور الجديدة</label>
+                    <input type="password" id="newPass" required placeholder="أدخل كلمة المرور الجديدة..." class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                </div>
+                <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+                    <button type="button" onclick="closeChangePasswordModal()" class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold">إلغاء</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-md shadow-blue-500/20">تحديث كلمة السر</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة إدارة المستخدمين -->
+    <div id="usersModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 text-right">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+                <h3 class="text-lg font-bold text-slate-800">إدارة المستخدمين (إنشاء / إلغاء)</h3>
+                <button onclick="closeUsersModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <form onsubmit="createNewUser(event)" class="bg-slate-50 p-4 rounded-2xl mb-6 border border-slate-200/80 space-y-3">
+                <h4 class="text-xs font-bold text-blue-600 uppercase">إضافة مستخدم جديد</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">اسم المستخدم</label>
+                        <input type="text" id="newUsername" required placeholder="اسم المستخدم" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">كلمة المرور</label>
+                        <input type="password" id="newUserPass" required placeholder="كلمة المرور" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">الصلاحية</label>
+                        <select id="newUserRole" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold">
+                            <option value="staff">مدخل (Staff)</option>
+                            <option value="admin">مسؤول (Admin)</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition">إضافة الحساب</button>
+            </form>
+
+            <h4 class="text-xs font-bold text-slate-600 uppercase mb-2">المستخدمون الحاليون</h4>
+            <div class="max-h-48 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100" id="usersListContainer">
+                <!-- يتم التعبئة من الجافاسكربت -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Scripts for Real-time Cloud Sync -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Setup & Environment Configurations
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'casablanca-village-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : {
+                apiKey: "AIzaSyDemoKeyOnlyReplaceWithYoursIfAny",
+                authDomain: "casablanca-village.firebaseapp.com",
+                projectId: "casablanca-village",
+                storageBucket: "casablanca-village.appspot.com",
+                messagingSenderId: "1234567890",
+                appId: "1:1234567890:web:casablancaDemo"
+            };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let currentRole = null;
+        let units = [];
+        let usersList = [];
+        let currentFilter = 'all';
+        let currentPage = 1;
+        const pageSize = 20;
+
+        // Path Helpers for Rules Compliance
+        const getPublicCollectionPath = (collectionName) => collection(db, 'artifacts', appId, 'public', 'data', collectionName);
+        const getPublicDocPath = (collectionName, docId) => doc(db, 'artifacts', appId, 'public', 'data', collectionName, docId);
+
+        // Authentication Setup
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth error:", error);
+            }
+        }
+
+        function getDefaultUsers() {
+            return [
+                { username: "admin", pass: "admin123", role: "admin" },
+                { username: "staff", pass: "1234", role: "staff" }
+            ];
+        }
+
+        // Live Real-Time Listeners
+        function setupLiveListeners() {
+            // Listen for users updates
+            onSnapshot(getPublicCollectionPath('users'), (snapshot) => {
+                if (snapshot.empty) {
+                    // Seed initial users if empty
+                    getDefaultUsers().forEach(async (u) => {
+                        await setDoc(getPublicDocPath('users', u.username), u);
+                    });
+                } else {
+                    usersList = [];
+                    snapshot.forEach(docSnap => {
+                        usersList.push(docSnap.data());
+                    });
+                    populateLoginSelect();
+                    if (document.getElementById('usersModal') && !document.getElementById('usersModal').classList.contains('hidden')) {
+                        renderUsersList();
+                    }
+                }
+            }, (error) => console.error("Users live listener error:", error));
+
+            // Listen for units updates in real-time
+            onSnapshot(getPublicCollectionPath('units'), (snapshot) => {
+                if (snapshot.empty) {
+                    // Seed initial units if empty
+                    const initial = generateInitialUnits();
+                    initial.forEach(async (u) => {
+                        await setDoc(getPublicDocPath('units', u.id), u);
+                    });
+                } else {
+                    units = [];
+                    snapshot.forEach(docSnap => {
+                        units.push(docSnap.data());
+                    });
+                    // Keep units sorted by numeric ID
+                    units.sort((a, b) => Number(a.id) - Number(b.id));
+                    render();
+                }
+            }, (error) => console.error("Units live listener error:", error));
+        }
+
+        function populateLoginSelect() {
+            const select = document.getElementById('loginUserSelect');
+            if (!select) return;
+            select.innerHTML = '';
+            usersList.forEach(u => {
+                const label = u.role === 'admin' ? `${u.username} (مسؤول)` : `${u.username} (مدخل)`;
+                select.innerHTML += `<option value="${u.username}">${label}</option>`;
+            });
+        }
+
+        window.handleLogin = function(e) {
+            e.preventDefault();
+            const username = document.getElementById('loginUserSelect').value;
+            const password = document.getElementById('loginPassword').value;
+
+            const foundUser = usersList.find(u => u.username === username && u.pass === password);
+
+            if (foundUser) {
+                currentUser = foundUser.username;
+                selectRole(foundUser.role);
+            } else {
+                alert('كلمة المرور غير صحيحة!');
+            }
+        };
+
+        window.openUsersModal = function() {
+            document.getElementById('usersModal').classList.remove('hidden');
+            document.getElementById('usersModal').classList.add('flex');
+            renderUsersList();
+        };
+
+        window.closeUsersModal = function() {
+            document.getElementById('usersModal').classList.add('hidden');
+            document.getElementById('usersModal').classList.remove('flex');
+        };
+
+        function renderUsersList() {
+            const container = document.getElementById('usersListContainer');
+            if (!container) return;
+            container.innerHTML = '';
+            usersList.forEach(u => {
+                const isProtected = (u.username === 'admin' && u.role === 'admin');
+                container.innerHTML += `
+                    <div class="flex items-center justify-between p-3 bg-white text-xs">
+                        <div>
+                            <span class="font-bold text-slate-800">${u.username}</span>
+                            <span class="mr-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${u.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}">${u.role === 'admin' ? 'مسؤول' : 'مدخل'}</span>
+                        </div>
+                        ${!isProtected ? `<button onclick="deleteUser('${u.username}')" class="text-rose-600 hover:text-rose-800 font-bold px-2 py-1 rounded-lg hover:bg-rose-50 transition"><i class="fa-solid fa-trash-can"></i> حذف</button>` : '<span class="text-slate-400 text-[10px]">محمي</span>'}
+                    </div>
+                `;
+            });
+        }
+
+        window.createNewUser = async function(e) {
+            e.preventDefault();
+            const username = document.getElementById('newUsername').value.trim();
+            const pass = document.getElementById('newUserPass').value.trim();
+            const role = document.getElementById('newUserRole').value;
+
+            if (usersList.some(u => u.username === username)) {
+                alert('اسم المستخدم موجود مسبقاً، اختر اسمًا آخر.');
+                return;
+            }
+
+            const newUser = { username, pass, role };
+            await setDoc(getPublicDocPath('users', username), newUser);
+            document.getElementById('newUsername').value = '';
+            document.getElementById('newUserPass').value = '';
+            alert('تم إنشاء المستخدم بنجاح ومزامنته حياً!');
+        };
+
+        window.deleteUser = async function(username) {
+            if (confirm(`هل أنت متأكد من حذف المستخدم (${username})؟`)) {
+                await deleteDoc(getPublicDocPath('users', username));
+            }
+        };
+
+        window.openChangePasswordModal = function() {
+            document.getElementById('passwordModal').classList.remove('hidden');
+            document.getElementById('passwordModal').classList.add('flex');
+        };
+
+        window.closeChangePasswordModal = function() {
+            document.getElementById('passwordModal').classList.add('hidden');
+            document.getElementById('passwordModal').classList.remove('flex');
+            document.getElementById('currentPass').value = '';
+            document.getElementById('newPass').value = '';
+        };
+
+        window.updatePassword = async function(e) {
+            e.preventDefault();
+            const currentPassInput = document.getElementById('currentPass').value;
+            const newPassInput = document.getElementById('newPass').value;
+
+            const userObj = usersList.find(u => u.username === currentUser);
+
+            if (userObj && userObj.pass === currentPassInput) {
+                userObj.pass = newPassInput;
+                await updateDoc(getPublicDocPath('users', currentUser), { pass: newPassInput });
+                alert('تم تغيير كلمة المرور بنجاح!');
+                closeChangePasswordModal();
+            } else {
+                alert('كلمة المرور الحالية غير صحيحة!');
+            }
+        };
+
+        function generateInitialUnits() {
+            const list = [];
+            let id = 1;
+
+            for (let b = 1; b <= 108; b++) {
+                const count = (b >= 55) ? 6 : 4;
+                for (let u = 1; u <= count; u++) {
+                    list.push({
+                        id: String(id++),
+                        number: `Apartment -${b}/${u}`,
+                        type: 'شقة',
+                        status: 'متواجد',
+                        resident: '',
+                        phone: ''
+                    });
+                }
+            }
+
+            for (let v = 1; v <= 419; v++) {
+                if (v >= 135 && v <= 206) {
+                    list.push({ id: String(id++), number: `Vila -${v}/1`, type: 'فيلا', status: 'متواجد', resident: '', phone: '' });
+                    list.push({ id: String(id++), number: `Vila -${v}/2`, type: 'فيلا', status: 'متواجد', resident: '', phone: '' });
+                } else {
+                    list.push({ id: String(id++), number: `Vila -${v}`, type: 'فيلا', status: 'متواجد', resident: '', phone: '' });
+                }
+            }
+            return list;
+        }
+
+        function selectRole(role) {
+            currentRole = role;
+            document.getElementById('authScreen').classList.add('hidden');
+            document.getElementById('roleBadge').innerText = role === 'admin' ? `مسؤول: ${currentUser}` : `مدخل: ${currentUser}`;
+            
+            const manageBtn = document.getElementById('manageUsersBtn');
+            if (role === 'staff') {
+                document.getElementById('statsSection').classList.add('hidden');
+                document.getElementById('addUnitBtn').classList.add('hidden');
+                if (manageBtn) manageBtn.classList.add('hidden');
+                document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+            } else {
+                document.getElementById('statsSection').classList.remove('hidden');
+                document.getElementById('addUnitBtn').classList.remove('hidden');
+                if (manageBtn) manageBtn.classList.remove('hidden');
+                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+            }
+
+            render();
+        }
+
+        window.logout = function() {
+            currentUser = null;
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('authScreen').classList.remove('hidden');
+        };
+
+        window.toggleStatus = async function(id) {
+            const u = units.find(x => x.id === id);
+            if (u) {
+                const newStatus = (u.status === 'متواجد') ? 'غير متواجد' : 'متواجد';
+                await updateDoc(getPublicDocPath('units', id), { status: newStatus });
+            }
+        };
+
+        window.setFilter = function(filter) {
+            currentFilter = filter;
+            currentPage = 1;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.className = 'filter-btn px-4 py-2.5 rounded-xl text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition';
+            });
+            if (filter === 'all') document.getElementById('filterAll').className = 'filter-btn px-4 py-2.5 rounded-xl text-sm font-bold bg-blue-600 text-white transition';
+            if (filter === 'متواجد') document.getElementById('filterAvail').className = 'filter-btn px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 text-white transition';
+            if (filter === 'غير متواجد') document.getElementById('filterOcc').className = 'filter-btn px-4 py-2.5 rounded-xl text-sm font-bold bg-rose-600 text-white transition';
+            render();
+        };
+
+        window.render = function() {
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            let filtered = units.filter(u => {
+                const matchFilter = (currentFilter === 'all') || (u.status === currentFilter);
+                const matchSearch = u.number.toLowerCase().includes(query) || (u.resident && u.resident.toLowerCase().includes(query));
+                return matchFilter && matchSearch;
+            });
+
+            const total = units.length;
+            const avail = units.filter(u => u.status === 'متواجد').length;
+            const occ = total - avail;
+            const ratio = total > 0 ? Math.round((avail / total) * 100) : 0;
+
+            document.getElementById('statTotal').innerText = total.toLocaleString();
+            document.getElementById('statAvailable').innerText = avail.toLocaleString();
+            document.getElementById('statOccupied').innerText = occ.toLocaleString();
+            document.getElementById('statRatio').innerText = `${ratio}%`;
+
+            const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+            const start = (currentPage - 1) * pageSize;
+            const pageData = filtered.slice(start, start + pageSize);
+
+            const tbody = document.getElementById('unitsTableBody');
+            tbody.innerHTML = '';
+
+            if (pageData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400 font-bold">لا توجد نتائج تطابق البحث</td></tr>`;
+            } else {
+                pageData.forEach(u => {
+                    const isAvail = u.status === 'متواجد';
+                    const badgeClass = isAvail ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
+                    
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50 transition">
+                            <td class="py-4 px-6 font-bold text-slate-800">${u.number}</td>
+                            <td class="py-4 px-6 text-slate-600">${u.type}</td>
+                            <td class="py-4 px-6">
+                                <span class="px-3 py-1 rounded-full text-xs font-bold ${badgeClass}">${u.status}</span>
+                            </td>
+                            <td class="py-4 px-6 text-slate-600">${u.resident || '-'}</td>
+                            <td class="py-4 px-6 text-slate-600">${u.phone || '-'}</td>
+                            <td class="py-4 px-6 text-center">
+                                <button onclick="toggleStatus('${u.id}')" class="px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm ${isAvail ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200'}">
+                                    تحويل إلى ${isAvail ? 'غير متواجد' : 'متواجد'}
+                                </button>
+                            </td>
+                            ${currentRole === 'admin' ? `
+                                <td class="py-4 px-6 text-center admin-only">
+                                    <button onclick="openModal('${u.id}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    <button onclick="deleteUnit('${u.id}')" class="p-2 text-rose-600 hover:bg-rose-50 rounded-lg"><i class="fa-solid fa-trash-can"></i></button>
+                                </td>
+                            ` : '<td class="hidden"></td>'}
+                        </tr>
+                    `;
+                });
+            }
+
+            document.getElementById('pageInfo').innerText = `عرض ${filtered.length > 0 ? start + 1 : 0} إلى ${Math.min(start + pageSize, filtered.length)} من أصل ${filtered.length} وحدة`;
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+        };
+
+        window.changePage = function(delta) {
+            currentPage += delta;
+            render();
+        };
+
+        window.openModal = function(id = null) {
+            document.getElementById('unitModal').classList.remove('hidden');
+            document.getElementById('unitModal').classList.add('flex');
+            if (id) {
+                const u = units.find(x => x.id === id);
+                document.getElementById('modalTitle').innerText = 'تعديل بيانات الوحدة';
+                document.getElementById('editUnitId').value = u.id;
+                document.getElementById('unitNumber').value = u.number;
+                document.getElementById('unitType').value = u.type;
+                document.getElementById('unitStatus').value = u.status;
+                document.getElementById('residentName').value = u.resident || '';
+                document.getElementById('phoneNumber').value = u.phone || '';
+            } else {
+                document.getElementById('modalTitle').innerText = 'إضافة وحدة جديدة';
+                document.getElementById('unitForm').reset();
+                document.getElementById('editUnitId').value = '';
+            }
+        };
+
+        window.closeModal = function() {
+            document.getElementById('unitModal').classList.add('hidden');
+            document.getElementById('unitModal').classList.remove('flex');
+        };
+
+        window.saveUnit = async function(e) {
+            e.preventDefault();
+            const id = document.getElementById('editUnitId').value;
+            const number = document.getElementById('unitNumber').value.trim();
+            const type = document.getElementById('unitType').value;
+            const status = document.getElementById('unitStatus').value;
+            const resident = document.getElementById('residentName').value.trim();
+            const phone = document.getElementById('phoneNumber').value.trim();
+
+            if (id) {
+                await updateDoc(getPublicDocPath('units', id), {
+                    number, type, status, resident, phone
+                });
+            } else {
+                const newId = String(Date.now());
+                await setDoc(getPublicDocPath('units', newId), {
+                    id: newId, number, type, status, resident, phone
+                });
+            }
+            closeModal();
+        };
+
+        window.deleteUnit = async function(id) {
+            if (confirm('هل أنت متأكد من رغبتك في حذف هذه الوحدة؟')) {
+                await deleteDoc(getPublicDocPath('units', id));
+            }
+        };
+
+        window.onload = async function() {
+            await initAuth();
+            setupLiveListeners();
+        };
+    </script>
+</body>
+</html>
