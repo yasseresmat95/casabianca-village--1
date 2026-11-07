@@ -3,13 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>قرية كازابيانكا - إدارة وتتبع حالات الوحدات</title>
+    <title>قرية كازابيانكا - إدارة وتتبع حالات الوحدات (Supabase)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons CDN -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <style>
         body { font-family: 'Tajawal', sans-serif; background-color: #f8fafc; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -257,6 +261,14 @@
     </div>
 
     <script>
+        // ضع بيانات Supabase الخاصة بك هنا 👇
+        const SUPABASE_URL = 'https://qqjvdglfawoqjcayzcvp.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_L-hR2gddBmr90d2SGPi06w_6lPZqrcg';
+
+        // تهيئة Supabase
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         let currentUser = null;
         let currentRole = null;
         let units = [];
@@ -265,31 +277,24 @@
         let currentPage = 1;
         const pageSize = 20;
 
-        function initUsers() {
-            const savedUsers = localStorage.getItem('casablanca_users_db');
-            if (savedUsers) {
-                try {
-                    usersList = JSON.parse(savedUsers);
-                } catch(e) {
-                    usersList = getDefaultUsers();
+        async function initUsers() {
+            try {
+                const { data, error } = await _supabase.from('users').select('*');
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    usersList = [
+                        { username: "admin", pass: "admin123", role: "admin" },
+                        { username: "staff", pass: "1234", role: "staff" }
+                    ];
+                    await _supabase.from('users').insert(usersList);
+                } else {
+                    usersList = data;
                 }
-            } else {
-                usersList = getDefaultUsers();
-                saveUsersDb();
+                populateLoginSelect();
+            } catch (err) {
+                console.error("خطأ في جلب المستخدمين:", err);
             }
-            populateLoginSelect();
-        }
-
-        function getDefaultUsers() {
-            return [
-                { username: "admin", pass: "admin123", role: "admin" },
-                { username: "staff", pass: "1234", role: "staff" }
-            ];
-        }
-
-        function saveUsersDb() {
-            localStorage.setItem('casablanca_users_db', JSON.stringify(usersList));
-            populateLoginSelect();
         }
 
         function populateLoginSelect() {
@@ -346,7 +351,7 @@
             });
         }
 
-        function createNewUser(e) {
+        async function createNewUser(e) {
             e.preventDefault();
             const username = document.getElementById('newUsername').value.trim();
             const pass = document.getElementById('newUserPass').value.trim();
@@ -357,18 +362,30 @@
                 return;
             }
 
-            usersList.push({ username, pass, role });
-            saveUsersDb();
+            const newUser = { username, pass, role };
+            const { error } = await _supabase.from('users').insert([newUser]);
+            if (error) {
+                alert('حدث خطأ أثناء حفظ المستخدم');
+                return;
+            }
+
+            usersList.push(newUser);
+            populateLoginSelect();
             document.getElementById('newUsername').value = '';
             document.getElementById('newUserPass').value = '';
             renderUsersList();
             alert('تم إنشاء المستخدم بنجاح!');
         }
 
-        function deleteUser(username) {
+        async function deleteUser(username) {
             if (confirm(`هل أنت متأكد من حذف المستخدم (${username})؟`)) {
+                const { error } = await _supabase.from('users').delete().eq('username', username);
+                if (error) {
+                    alert('خطأ أثناء الحذف');
+                    return;
+                }
                 usersList = usersList.filter(u => u.username !== username);
-                saveUsersDb();
+                populateLoginSelect();
                 renderUsersList();
             }
         }
@@ -385,7 +402,7 @@
             document.getElementById('newPass').value = '';
         }
 
-        function updatePassword(e) {
+        async function updatePassword(e) {
             e.preventDefault();
             const currentPassInput = document.getElementById('currentPass').value;
             const newPassInput = document.getElementById('newPass').value;
@@ -393,8 +410,12 @@
             const userObj = usersList.find(u => u.username === currentUser);
 
             if (userObj && userObj.pass === currentPassInput) {
+                const { error } = await _supabase.from('users').update({ pass: newPassInput }).eq('username', currentUser);
+                if (error) {
+                    alert('خطأ أثناء التحديث');
+                    return;
+                }
                 userObj.pass = newPassInput;
-                saveUsersDb();
                 alert('تم تغيير كلمة المرور بنجاح!');
                 closeChangePasswordModal();
             } else {
@@ -402,7 +423,7 @@
             }
         }
 
-        function generateInitialUnits() {
+        async function generateInitialUnits() {
             const list = [];
             let id = 1;
 
@@ -428,27 +449,31 @@
                     list.push({ id: String(id++), number: `Vila -${v}`, type: 'فيلا', status: 'متواجد', resident: '', phone: '' });
                 }
             }
+
+            // إدخال دفعات كبيرة لـ Supabase لتجنب حدود الـ Request
+            const chunkSize = 500;
+            for (let i = 0; i < list.length; i += chunkSize) {
+                const chunk = list.slice(i, i + chunkSize);
+                await _supabase.from('units').insert(chunk);
+            }
             return list;
         }
 
-        function initData() {
-            initUsers();
-            const saved = localStorage.getItem('casablanca_units_v3');
-            if (saved) {
-                try {
-                    units = JSON.parse(saved);
-                } catch(e) {
-                    units = generateInitialUnits();
-                }
+        async function initData() {
+            await initUsers();
+            const { data, error } = await _supabase.from('units').select('*');
+            if (error) {
+                console.error("خطأ في جلب الوحدات:", error);
+                return;
             }
-            if (!units || units.length === 0) {
-                units = generateInitialUnits();
-                saveData();
-            }
-        }
 
-        function saveData() {
-            localStorage.setItem('casablanca_units_v3', JSON.stringify(units));
+            if (!data || data.length === 0) {
+                units = await generateInitialUnits();
+            } else {
+                units = data;
+                // ترتيب الوحدات رقمياً أو تصاعدياً حسب الحاجة
+            }
+            render();
         }
 
         function selectRole(role) {
@@ -478,11 +503,15 @@
             document.getElementById('authScreen').classList.remove('hidden');
         }
 
-        function toggleStatus(id) {
+        async function toggleStatus(id) {
             const u = units.find(x => x.id === id);
             if (u) {
                 u.status = (u.status === 'متواجد') ? 'غير متواجد' : 'متواجد';
-                saveData();
+                const { error } = await _supabase.from('units').update({ status: u.status }).eq('id', id);
+                if (error) {
+                    alert('خطأ أثناء تحديث الحالة');
+                    return;
+                }
                 render();
             }
         }
@@ -591,7 +620,7 @@
             document.getElementById('unitModal').classList.remove('flex');
         }
 
-        function saveUnit(e) {
+        async function saveUnit(e) {
             e.preventDefault();
             const id = document.getElementById('editUnitId').value;
             const number = document.getElementById('unitNumber').value.trim();
@@ -608,22 +637,36 @@
                     u.status = status;
                     u.resident = resident;
                     u.phone = phone;
+                    const { error } = await _supabase.from('units').update(u).eq('id', id);
+                    if (error) {
+                        alert('حدث خطأ أثناء التحديث');
+                        return;
+                    }
                 }
             } else {
-                units.unshift({
+                const newUnit = {
                     id: String(Date.now()),
                     number, type, status, resident, phone
-                });
+                };
+                const { error } = await _supabase.from('units').insert([newUnit]);
+                if (error) {
+                    alert('حدث خطأ أثناء الإضافة');
+                    return;
+                }
+                units.unshift(newUnit);
             }
-            saveData();
             closeModal();
             render();
         }
 
-        function deleteUnit(id) {
+        async function deleteUnit(id) {
             if (confirm('هل أنت متأكد من رغبتك في حذف هذه الوحدة؟')) {
+                const { error } = await _supabase.from('units').delete().eq('id', id);
+                if (error) {
+                    alert('حدث خطأ أثناء الحذف');
+                    return;
+                }
                 units = units.filter(u => u.id !== id);
-                saveData();
                 render();
             }
         }
